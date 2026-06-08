@@ -1,6 +1,6 @@
 # emlearn Human Activity Recognition
 
-An end-to-end TinyML project that trains a neural network classifier in Python and deploys it on an **Arduino Nano 33 BLE Sense** (BMI270 IMU) using the [emlearn](https://emlearn.org) library. The board classifies four real-time wrist/hand motions: **Clockwise**, **Horizontal**, **Idle**, and **Vertical**.
+An end-to-end TinyML project for classifying wrist and hand motions on an **Arduino Nano 33 BLE Sense Rev2**. The repository still includes the data-collection sketch and model-training notebook, but the Arduino inference source has been replaced with a **precompiled firmware binary** that is flashed with **Arduino CLI**.
 
 ---
 
@@ -13,23 +13,26 @@ An end-to-end TinyML project that trains a neural network classifier in Python a
 - [Workflow](#workflow)
   - [1. Data Collection](#1-data-collection)
   - [2. Model Training](#2-model-training)
-  - [3. Deployment](#3-deployment)
+  - [3. Flash Prebuilt Firmware](#3-flash-prebuilt-firmware)
 - [Signal Processing Pipeline](#signal-processing-pipeline)
 - [Neural Network Architecture](#neural-network-architecture)
 - [Motion Classes](#motion-classes)
 - [Getting Started](#getting-started)
-- [License](#license)
+- [Notes](#notes)
+- [Licenses](#licenses)
 
 ---
 
 ## Overview
 
-This project demonstrates a complete TinyML pipeline:
+This project demonstrates a TinyML human-activity-recognition workflow:
 
 1. **Collect** raw 3-axis accelerometer data from the Arduino at 100 Hz and save it as CSV files.
-2. **Train** a lightweight neural network in a Jupyter Notebook (Keras + scikit-learn) using frequency-domain (spectral) features extracted via FFT.
-3. **Export** the trained model and StandardScaler parameters to C++ header files using `emlearn`.
-4. **Deploy** the classifier back to the Arduino, where it performs real-time inference with no cloud dependency.
+2. **Train** a lightweight neural network in Python using FFT-based spectral features.
+3. **Use the bundled firmware binary** to run real-time inference on the Arduino Nano 33 BLE Sense Rev2.
+
+The trained firmware recognises four motion classes in real time:
+**Clockwise**, **Horizontal**, **Idle**, and **Vertical**.
 
 ---
 
@@ -37,53 +40,51 @@ This project demonstrates a complete TinyML pipeline:
 
 | Component | Details |
 |-----------|---------|
-| Arduino Nano 33 BLE Sense | BMI270 + BMM150 IMU |
+| Arduino Nano 33 BLE Sense Rev2 | BMI270 + BMM150 IMU |
 | USB cable | For programming and serial output |
 
 ---
 
 ## Software Requirements
 
-### Arduino (Embedded)
-- [Arduino IDE](https://www.arduino.cc/en/software) ≥ 2.x
-- `Arduino_BMI270_BMM150` library
-- `emlearn` Arduino library (provides `eml_net.h`, `eml_fft.h`, `eml_iir.h`)
-- `tinyml4all` library (used by the data-capture sketch)
+### Bundled in this repository
+- `arduino-cli_1.5.1_Windows_64bit.zip` — Windows Arduino CLI executable archive
+- `arduino.mbed_nano.nano33ble/Arduino_HAR.ino.bin` — precompiled firmware image
+- `libraries/Arduino_BMI270_BMM150/` — IMU library bundle
+- `libraries/emlearn/` — emlearn Arduino headers
+- `libraries/tinyml4all/` — helper library used by the data-capture sketch
 
-### Python (Training)
+### Python (training/reference)
 - Python 3.x
 - TensorFlow / Keras
 - scikit-learn
 - NumPy, pandas, matplotlib
-- emlearn Python package (`pip install emlearn`)
+- emlearn Python package
 
 ---
 
 ## Repository Structure
 
-```
+```text
 emlearn-Human-Activity-Recognition/
 ├── CaptureMotionCSV/
-│   └── CaptureMotionCSV.ino      # Arduino sketch: records IMU data to CSV via Serial
-│
+│   └── CaptureMotionCSV.ino              # Arduino sketch for recording IMU data over Serial
 ├── data/
-│   ├── clockwise.csv / .txt      # Collected accelerometer data — clockwise motion
-│   ├── horizontal.csv / .txt     # Collected accelerometer data — horizontal motion
-│   ├── idle.csv / .txt           # Collected accelerometer data — idle (no motion)
-│   └── vertical.csv / .txt       # Collected accelerometer data — vertical motion
-│
-├── HAR_model_training.html       # Rendered Jupyter Notebook (training pipeline)
-├── HAR_model_training.pdf        # PDF version of the training notebook
-│
-└── Arduino_HAR/
-    ├── Arduino_HAR.ino           # Main inference sketch (real-time HAR)
-    ├── NeuralNetworkClassifier.h # Trained NN weights/biases exported by emlearn
-    ├── StandardScaler.h          # Scaler means & stds exported from scikit-learn
-    ├── SlidingWindow.h           # Reusable fixed-size sliding window (C++ template)
-    ├── SpectralFeatures.h        # Spectral feature extraction from FFT magnitudes
-    ├── eml_FFT.h                 # C++ wrapper around emlearn's FFT
-    ├── eml_iir_filter.h          # C++ wrapper around emlearn's IIR filter
-    └── boxcar_128_lut.h          # Precomputed 128-point boxcar window LUT
+│   ├── clockwise.csv / .txt              # Clockwise motion samples
+│   ├── horizontal.csv / .txt             # Horizontal motion samples
+│   ├── idle.csv / .txt                   # Idle motion samples
+│   └── vertical.csv / .txt               # Vertical motion samples
+├── HAR_model_training.ipynb              # Source notebook for the training pipeline
+├── HAR_model_training.html               # Rendered training notebook
+├── HAR_model_training.pdf                # PDF export of the notebook
+├── arduino-cli_1.5.1_Windows_64bit.zip   # Bundled Arduino CLI for Windows
+├── arduino.mbed_nano.nano33ble/
+│   ├── Arduino_HAR.ino.bin               # Prebuilt firmware flashed to the board
+│   └── README.txt                        # Example `arduino-cli` upload commands
+└── libraries/
+    ├── Arduino_BMI270_BMM150/            # Bundled sensor library
+    ├── emlearn/                          # Bundled emlearn headers
+    └── tinyml4all/                       # Bundled helper library
 ```
 
 ---
@@ -92,76 +93,85 @@ emlearn-Human-Activity-Recognition/
 
 ### 1. Data Collection
 
-Upload `CaptureMotionCSV/CaptureMotionCSV.ino` to the board. Open the Serial Monitor (115200 baud). The sketch prompts you for:
+Upload `CaptureMotionCSV/CaptureMotionCSV.ino` to the board, then open the Serial Monitor at **115200 baud**.
 
-- **Motion label** – e.g., `clockwise`, `horizontal`, `idle`, `vertical`
-- **Duration in minutes** – number of minutes to record
+The sketch asks for:
+- **Motion label** — `clockwise`, `horizontal`, `idle`, or `vertical`
+- **Duration in minutes** — recording length
 
-It then streams data at **100 Hz** in CSV format:
+It then streams CSV rows such as:
 
-```
+```text
 timestamp,accX,accY,accZ,motion
 0,0.645237,-2.387019,5.018247,clockwise
 10,0.905008,-2.613271,4.495114,clockwise
-...
 ```
 
-Acceleration values are in m/s². Copy the Serial output into a `.csv` file under the `data/` directory.
+Save the captured output into the matching files under `/data`.
 
 ### 2. Model Training
 
-Open `HAR_model_training.html` (or the source `.ipynb`) to follow the full training pipeline:
+`HAR_model_training.ipynb` documents the end-to-end training pipeline:
 
-1. **Load & merge** the four CSV files.
-2. **Preprocess** – apply a 4th-order Butterworth low-pass filter (cutoff 5 Hz) to each axis.
-3. **Segment** – slice the time-series into overlapping windows (2000 ms window, 500 ms stride).
-4. **Feature extraction** – compute a 128-point FFT on each window per axis, then extract 6 spectral features per axis → **18 features** total.
-5. **Normalise** – fit a `StandardScaler` (zero mean, unit variance).
-6. **Train** – a Keras Sequential neural network (see architecture below).
-7. **Export** – use `emlearn` to generate `NeuralNetworkClassifier.h` and export scaler parameters to `StandardScaler.h`.
+1. Load and merge the four motion datasets.
+2. Apply a 4th-order Butterworth low-pass filter.
+3. Segment the signal into overlapping windows.
+4. Extract FFT-based spectral features from each axis.
+5. Normalise features with `StandardScaler`.
+6. Train a Keras neural network classifier.
 
-### 3. Deployment
+The notebook is retained as training/reference material. The repository currently distributes the **compiled Arduino firmware** instead of the original Arduino inference source files.
 
-Copy the generated header files into `Arduino_HAR/` and upload the sketch. The board will:
+### 3. Flash Prebuilt Firmware
 
-- Sample the IMU at 100 Hz.
-- Filter each axis with the IIR low-pass filter.
-- Fill the sliding window; emit a frame every 500 ms.
-- Run the 128-point FFT → extract 18 spectral features → scale → classify.
-- Print the predicted label and confidence over Serial.
+The repository now ships the compiled firmware as `arduino.mbed_nano.nano33ble/Arduino_HAR.ino.bin`.
 
-Example Serial output:
-```
-Predicted Label: clockwise    Probability: 94.32%
-Predicted Label: idle         Probability: 98.71%
-```
+On Windows:
+
+1. Extract `arduino-cli_1.5.1_Windows_64bit.zip`.
+2. Connect the Arduino Nano 33 BLE Sense Rev2.
+3. Use Arduino CLI to detect the port:
+
+   ```bash
+   arduino-cli board list
+   ```
+
+4. Upload the bundled binary with the Nano 33 BLE FQBN:
+
+   ```bash
+   arduino-cli upload -p COM6 --fqbn arduino:mbed_nano:nano33ble -i .\arduino.mbed_nano.nano33ble\Arduino_HAR.ino.bin
+   ```
+
+Replace `COM6` with the port reported on your machine. A sample upload session is included in `arduino.mbed_nano.nano33ble/README.txt`.
+
+After flashing, open the serial monitor to observe live motion predictions from the prebuilt model.
 
 ---
 
 ## Signal Processing Pipeline
 
-```
+```text
 IMU (100 Hz)
     │
     ▼
-4th-order Butterworth IIR LPF (cutoff 5 Hz)
-    │  SOS biquad implementation via emlearn
+4th-order Butterworth IIR low-pass filter
     │
     ▼
-Sliding Window  (2000 ms frame, 500 ms stride → 200 samples)
+Sliding window segmentation
     │
     ▼
-128-point Single-Sided FFT  (boxcar window)  × 3 axes
+128-point FFT on 3 axes
     │
     ▼
-Spectral Feature Extraction  (6 features × 3 axes = 18 features)
-  peak | mean | RMS | PSD | energy | std_dev
+Spectral feature extraction
     │
     ▼
-StandardScaler  (subtract mean, divide by std)
+StandardScaler normalisation
     │
     ▼
-Neural Network Classifier  →  { clockwise | horizontal | idle | vertical }
+Neural network classifier
+    │
+    └──> { clockwise | horizontal | idle | vertical }
 ```
 
 ---
@@ -179,8 +189,8 @@ Neural Network Classifier  →  { clockwise | horizontal | idle | vertical }
 
 - **Optimizer:** Adam
 - **Loss:** Categorical cross-entropy
-- **Epochs:** 30 | **Batch size:** 32
-- **Export format:** C header (`eml_net.h` compatible) via emlearn
+- **Epochs:** 30
+- **Batch size:** 32
 
 ---
 
@@ -190,28 +200,33 @@ Neural Network Classifier  →  { clockwise | horizontal | idle | vertical }
 |-------|------------|
 | `clockwise` | Wrist/hand rotating in a clockwise circular motion |
 | `horizontal` | Lateral side-to-side motion |
-| `idle` | No deliberate motion (resting) |
+| `idle` | No deliberate motion |
 | `vertical` | Up-and-down motion |
 
 ---
 
 ## Getting Started
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/TronixLab/emlearn-Human-Activity-Recognition.git
-   ```
-
-2. **Collect data** – upload `CaptureMotionCSV.ino`, capture ~1 minute per class.
-
-3. **Train the model** – open the Jupyter Notebook, run all cells, and copy the generated header files to `Arduino_HAR/`.
-
-4. **Deploy** – open `Arduino_HAR.ino` in the Arduino IDE, compile, and upload.
-
-5. **Observe results** – open the Serial Monitor at **115200 baud** to see live predictions.
+1. Clone the repository.
+2. If needed, collect or review motion data using `CaptureMotionCSV/CaptureMotionCSV.ino` and the files in `data/`.
+3. Review the training workflow in `HAR_model_training.ipynb`, `HAR_model_training.html`, or `HAR_model_training.pdf`.
+4. Extract the bundled Arduino CLI archive.
+5. Flash `arduino.mbed_nano.nano33ble/Arduino_HAR.ino.bin` with `arduino-cli upload`.
+6. Open the serial monitor and verify the board prints live predicted labels.
 
 ---
 
-## License
+## Notes
 
-See [LICENSE](LICENSE) for details.
+- The repository no longer includes the Arduino inference source sketch.
+- The `libraries/` directory is bundled so the data-capture workflow and related Arduino dependencies are available locally.
+- The upload command uses the board FQBN `arduino:mbed_nano:nano33ble`.
+
+---
+
+## Licenses
+
+This repository includes third-party components with their own license files, including:
+- `libraries/Arduino_BMI270_BMM150/LICENSE`
+- `libraries/tinyml4all/LICENSE`
+- `arduino-cli_1.5.1_Windows_64bit.zip` (`LICENSE.txt` inside the archive)
