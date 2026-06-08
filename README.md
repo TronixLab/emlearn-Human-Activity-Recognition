@@ -138,18 +138,19 @@ On Windows:
        - Under System variables (or User variables), scroll down and select Path.
        - Click Edit...
    - v. **Add your folder**: Click New, paste the folder path you copied in step 1, and click OK to close all windows.
-   To verify that the operating system recognizes the tool globally, open a brand new terminal or command prompt window and run:
+   
+  To verify that the operating system recognizes the tool globally, open a brand new terminal or command prompt window and run:
   ```bash
   arduino-cli version
   ```
-3. Connect the Arduino Nano 33 BLE Sense Rev2.
-4. Use Arduino CLI to detect the port:
+2. Connect the Arduino Nano 33 BLE Sense Rev2.
+3. Use Arduino CLI to detect the port:
 
    ```bash
    arduino-cli board list
    ```
 
-5. Upload the bundled binary with the Nano 33 BLE FQBN:
+4. Upload the bundled binary with the Nano 33 BLE FQBN:
 
    ```bash
    arduino-cli upload -p COM6 --fqbn arduino:mbed_nano:nano33ble -i .\arduino.mbed_nano.nano33ble\Arduino_HAR.ino.bin
