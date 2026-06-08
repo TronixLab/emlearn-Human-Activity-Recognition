@@ -129,14 +129,23 @@ The repository now ships the compiled firmware as `arduino.mbed_nano.nano33ble/A
 On Windows:
 
 1. Extract `arduino-cli_1.5.1_Windows_64bit.zip`.
-2. Connect the Arduino Nano 33 BLE Sense Rev2.
-3. Use Arduino CLI to detect the port:
+   To add the Arduino CLI to your system's environment variables, you must add the folder containing your arduino-cli executable to your system's PATH variable.
+   This allows you to run arduino-cli from any terminal or command prompt window without typing its full directory path.
+   - 1. Copy the path: Locate the folder where you extracted arduino-cli.exe (e.g., C:\ArduinoCLI) and copy the full path from the File Explorer address bar.
+   - 2. Open System Properties: Press the Windows Key, type Environment Variables, and select Edit the system environment variables.
+   - 3. Open Environment Variables: Click the Environment Variables... button at the bottom right of the window.
+   - 4. Edit the Path variable:
+     - Under System variables (or User variables), scroll down and select Path.
+     - Click Edit...
+   - 5. Add your folder: Click New, paste the folder path you copied in step 1, and click OK to close all windows.
+3. Connect the Arduino Nano 33 BLE Sense Rev2.
+4. Use Arduino CLI to detect the port:
 
    ```bash
    arduino-cli board list
    ```
 
-4. Upload the bundled binary with the Nano 33 BLE FQBN:
+5. Upload the bundled binary with the Nano 33 BLE FQBN:
 
    ```bash
    arduino-cli upload -p COM6 --fqbn arduino:mbed_nano:nano33ble -i .\arduino.mbed_nano.nano33ble\Arduino_HAR.ino.bin
