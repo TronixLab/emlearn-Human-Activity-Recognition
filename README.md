@@ -13,7 +13,9 @@ An end-to-end TinyML project for classifying wrist and hand motions on an **Ardu
 - [Workflow](#workflow)
   - [1. Data Collection](#1-data-collection)
   - [2. Model Training](#2-model-training)
-  - [3. Flash Prebuilt Firmware](#3-flash-prebuilt-firmware)
+  - [3. Install Arduino CLI](#3-install-arduino-cli)
+  - [4. Flash Prebuilt Firmware](#4-flash-prebuilt-firmware)
+  - [5. Test the Firmware](#5-test-the-firmware)
 - [Signal Processing Pipeline](#signal-processing-pipeline)
 - [Neural Network Architecture](#neural-network-architecture)
 - [Motion Classes](#motion-classes)
@@ -122,43 +124,80 @@ Save the captured output into the matching files under `/data`.
 
 The notebook is retained as training/reference material. The repository currently distributes the **compiled Arduino firmware** instead of the original Arduino inference source files.
 
-### 3. Flash Prebuilt Firmware
+### 3. Install Arduino CLI
 
-The repository now ships the compiled firmware as `arduino.mbed_nano.nano33ble/Arduino_HAR.ino.bin`.
+The repository includes a Windows Arduino CLI archive: `arduino-cli_1.5.1_Windows_64bit.zip`.
 
-On Windows:
+#### Windows installation using the bundled archive
 
-1. Extract `arduino-cli_1.5.1_Windows_64bit.zip`.
-   To add the Arduino CLI to your system's environment variables, you must add the folder containing your arduino-cli executable to your system's PATH variable.
-   This allows you to run arduino-cli from any terminal or command prompt window without typing its full directory path.
-   - i. **Copy the path**: Locate the folder where you extracted arduino-cli.exe (e.g., C:\ArduinoCLI) and copy the full path from the File Explorer address bar.
-   - ii. **Open System Properties**: Press the Windows Key, type Environment Variables, and select Edit the system environment variables.
-   - iii. **Open Environment Variables**: Click the Environment Variables... button at the bottom right of the window.
-   - iv. **Edit the Path variable**:
-       - Under System variables (or User variables), scroll down and select Path.
-       - Click Edit...
-   - v. **Add your folder**: Click New, paste the folder path you copied in step 1, and click OK to close all windows.
-   
-  To verify that the operating system recognizes the tool globally, open a brand new terminal or command prompt window and run:
+1. Extract `arduino-cli_1.5.1_Windows_64bit.zip` to a folder such as `C:\ArduinoCLI`.
+2. Add that folder to your `PATH` so `arduino-cli` can be run from any terminal:
+  - Open **Edit the system environment variables**.
+  - Select **Environment Variables...**
+  - Edit the `Path` entry under either **User variables** or **System variables**.
+  - Add the folder that contains `arduino-cli.exe`.
+3. Open a new terminal and verify the installation:
+
   ```bash
   arduino-cli version
   ```
-2. Connect the Arduino Nano 33 BLE Sense Rev2.
-3. Use Arduino CLI to detect the port:
 
-   ```bash
-   arduino-cli board list
-   ```
+#### Optional installation on macOS or Linux
 
-4. Upload the bundled binary with the Nano 33 BLE FQBN:
+Install Arduino CLI from the official Arduino distribution for your platform, then verify it with:
 
-   ```bash
-   arduino-cli upload -p COM6 --fqbn arduino:mbed_nano:nano33ble -i .\arduino.mbed_nano.nano33ble\Arduino_HAR.ino.bin
-   ```
+```bash
+arduino-cli version
+```
 
-Replace `COM6` with the port reported on your machine. A sample upload session is included in `arduino.mbed_nano.nano33ble/README.txt`.
+#### Install the Nano 33 BLE board platform
 
-After flashing, open the serial monitor to observe live motion predictions from the prebuilt model.
+Before uploading the firmware, install the board definitions used by the Arduino Nano 33 BLE Sense Rev2:
+
+```bash
+arduino-cli config init
+arduino-cli core update-index
+arduino-cli core install arduino:mbed_nano
+```
+
+### 4. Flash Prebuilt Firmware
+
+The repository now ships the compiled firmware as `arduino.mbed_nano.nano33ble/Arduino_HAR.ino.bin`.
+
+1. Connect the Arduino Nano 33 BLE Sense Rev2 by USB.
+2. Detect the serial port:
+
+  ```bash
+  arduino-cli board list
+  ```
+
+  Look for the board with FQBN `arduino:mbed_nano:nano33ble`. The port may look like `COM6` on Windows, `/dev/ttyACM0` on Linux, or `/dev/cu.usbmodem...` on macOS.
+
+3. Upload the bundled binary:
+
+  ```bash
+  arduino-cli upload -p <PORT> --fqbn arduino:mbed_nano:nano33ble -i ./arduino.mbed_nano.nano33ble/Arduino_HAR.ino.bin
+  ```
+
+  Replace `<PORT>` with the value reported by `arduino-cli board list`.
+
+4. If the board is not detected, press the reset button twice to enter bootloader mode and run the upload command again.
+
+A sample upload session is included in `arduino.mbed_nano.nano33ble/README.txt`.
+
+### 5. Test the Firmware
+
+After flashing, open a serial monitor at **115200 baud** to confirm the model is running:
+
+```bash
+arduino-cli monitor -p <PORT> -c baudrate=115200
+```
+
+Move the board through the supported motions and verify that live predictions are printed for:
+- `clockwise`
+- `horizontal`
+- `idle`
+- `vertical`
 
 ---
 
@@ -224,9 +263,9 @@ Neural network classifier
 1. Clone the repository.
 2. If needed, collect or review motion data using `CaptureMotionCSV/CaptureMotionCSV.ino` and the files in `data/`.
 3. Review the training workflow in `HAR_model_training.ipynb`, `HAR_model_training.html`, or `HAR_model_training.pdf`.
-4. Extract the bundled Arduino CLI archive.
+4. Install Arduino CLI and the `arduino:mbed_nano` core.
 5. Flash `arduino.mbed_nano.nano33ble/Arduino_HAR.ino.bin` with `arduino-cli upload`.
-6. Open the serial monitor and verify the board prints live predicted labels.
+6. Open the serial monitor at 115200 baud and verify the board prints live predicted labels.
 
 ---
 
@@ -235,6 +274,7 @@ Neural network classifier
 - The repository no longer includes the Arduino inference source sketch.
 - The `libraries/` directory is bundled so the data-capture workflow and related Arduino dependencies are available locally.
 - The upload command uses the board FQBN `arduino:mbed_nano:nano33ble`.
+- The bundled Arduino CLI archive is Windows-only; macOS and Linux users should install Arduino CLI separately.
 
 ---
 
